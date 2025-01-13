@@ -1,101 +1,195 @@
-import Image from "next/image";
+'use client'; // For client-side hooks
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [group, setGroup] = useState([]);
+  const [billAmount, setBillAmount] = useState('');
+  const [payer, setPayer] = useState('');
+  const [splitWith, setSplitWith] = useState([]);
+  const [summary, setSummary] = useState([]);
+  const [personName, setPersonName] = useState(''); // Track "Enter Name" field
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    const savedSummary = JSON.parse(localStorage.getItem('summary')) || [];
+    setSummary(savedSummary);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('summary', JSON.stringify(summary));
+  }, [summary]);
+
+  const handleAddPerson = () => {
+    if (personName && !group.includes(personName)) {
+      setGroup([...group, personName]);
+      setPersonName(''); // Clear the "Enter Name" field after adding
+    }
+  };
+
+  const handleDeletePerson = (person) => {
+    // Remove person from the group and from "splitWith"
+    const updatedGroup = group.filter((member) => member !== person);
+    const updatedSplitWith = splitWith.filter((member) => member !== person);
+
+    // If the deleted member was the payer, reset the payer
+    if (payer === person) {
+      setPayer('');
+    }
+
+    setGroup(updatedGroup);
+    setSplitWith(updatedSplitWith);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (splitWith.length === 0) {
+      alert('Please select at least one person to split the bill.');
+      return;
+    }
+
+    const filteredSplitWith = splitWith.filter((person) => person !== payer);
+    const splitAmount = billAmount / filteredSplitWith.length;
+
+    const currentDate = new Date();
+    const formattedDate = `${currentDate.getMonth() + 1}/${currentDate.getDate()}/${currentDate.getFullYear()}`;
+
+    const newSummary = filteredSplitWith.map(
+      (person) => `${person} owes ${payer} $${splitAmount.toFixed(2)} (${formattedDate})`
+    );
+
+    setSummary([...summary, ...newSummary]);
+
+    // Clear form fields after adding a bill
+    setBillAmount('');
+    setPayer('');
+    setSplitWith([]); // Clear checkboxes
+    setPersonName(''); // Clear "Enter Name" field
+  };
+
+  const handleDeleteBill = (index) => {
+    const updatedSummary = summary.filter((_, i) => i !== index);
+    setSummary(updatedSummary);
+  };
+
+  return (
+    <div className="container mx-auto p-8 max-w-2xl">
+      <h1 className="text-4xl font-bold mb-2 text-center">Bill Splitter</h1>
+      <p className="text-center text-gray-600 font-medium">a Nick Sobhanian production</p>
+      <p className="text-center text-gray-500 text-sm italic">IG: nick.sobhanian</p>
+
+      {/* Step 1: Add People to Group */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-4">1. Add People to Group</h2>
+        <input
+          type="text"
+          id="name"
+          value={personName}
+          onChange={(e) => setPersonName(e.target.value)}
+          className="border p-2 text-black bg-white rounded w-full mb-4"
+          placeholder="Enter Name"
+        />
+        <button
+          onClick={handleAddPerson}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full"
+        >
+          Add Person
+        </button>
+      </div>
+
+      {/* Step 2: Group Members */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-4">2. Group Members</h2>
+        <ul className="list-disc pl-4">
+          {group.length === 0 ? (
+            <li>No members added yet.</li>
+          ) : (
+            group.map((member, index) => (
+              <li key={index} className="flex justify-between items-center mb-2">
+                <span>{member}</span>
+                <button
+                  onClick={() => handleDeletePerson(member)}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded"
+                >
+                  Delete
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      {/* Step 3: Add Bill */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-4">3. Add a Bill</h2>
+        <form onSubmit={handleSubmit}>
+          <label className="block font-semibold mb-2">Bill Amount:</label>
+          <input
+            type="number"
+            value={billAmount}
+            onChange={(e) => setBillAmount(e.target.value)}
+            className="border p-2 text-black bg-white rounded w-full mb-4"
+          />
+          <label className="block font-semibold mb-2">Payer:</label>
+          <select
+            value={payer}
+            onChange={(e) => setPayer(e.target.value)}
+            className="border p-2 rounded w-full mb-4 text-black bg-white"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <option value="" className="text-gray-500">
+              Select Payer
+            </option>
+            {group.map((member) => (
+              <option key={member} value={member} className="text-black">
+                {member}
+              </option>
+            ))}
+          </select>
+
+          <label className="block font-semibold mb-2">Select who splits the bill:</label>
+          <ul className="list-none mb-4">
+            {group.map((member) =>
+              member !== payer ? (
+                <li key={member} className="mb-2">
+                  <input
+                    type="checkbox"
+                    checked={splitWith.includes(member)}
+                    onChange={(e) =>
+                      setSplitWith(
+                        e.target.checked ? [...splitWith, member] : splitWith.filter((person) => person !== member)
+                      )
+                    }
+                  />
+                  <span className="ml-2">{member}</span>
+                </li>
+              ) : null
+            )}
+          </ul>
+          <button type="submit" className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">
+            Add Bill
+          </button>
+        </form>
+      </div>
+
+      {/* Step 4: Summary */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-4">4. Summary</h2>
+        <ul className="list-disc pl-4">
+          {summary.length === 0 ? (
+            <li>No bills added yet.</li>
+          ) : (
+            summary.map((line, index) => (
+              <li key={index} className="flex justify-between items-center mb-2">
+                <span>{line}</span>
+                <button
+                  onClick={() => handleDeleteBill(index)}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded"
+                >
+                  Delete
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
